@@ -75,11 +75,11 @@
       resultBox.style.display = "none";
 
       try {
-        const res = await fetch("/api/analyze", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: textInput })
-        });
+        const res = await fetch("/api/index", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: textInput })
+});
 
         const data = await res.json();
 
