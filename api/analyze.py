@@ -1,56 +1,42 @@
-import json
 import os
-from http.server import BaseHTTPRequestHandler
+from pathlib import Path
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 import joblib
 
-# Load the saved model and vectorizer
-# Ensure these .pkl files are in the same root directory as your repository
-current_dir = os.path.dirname(os.path.abspath(__file__))
-model_path = os.path.join(current_dir, "..", "model_pac.pkl")
-vectorizer_path = os.path.join(current_dir, "..", "tfidf_vectorizer.pkl")
+app = FastAPI()
 
-model = joblib.load(model_path)
-vectorizer = joblib.load(vectorizer_path)
+# Define the request payload structure
 
 
-class handler(BaseHTTPRequestHandler):
-    def do_POST(self):
-        content_length = int(self.headers.get("Content-Length", 0))
-        post_body = self.rfile.read(content_length)
+class TextPayload(BaseModel):
+    text: str
 
-        try:
-            body = json.loads(post_body.decode("utf-8"))
-            user_text = body.get("text", "").strip()
 
-            if not user_text:
-                self.send_response(400)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(json.dumps(
-                    {"error": "No text provided"}).encode("utf-8"))
-                return
+# Load models using safe relative paths
+BASE_DIR = Path(__file__).resolve().parent.parent
+MODEL_PATH = BASE_DIR / "model_pac.pkl"
+VECTORIZER_PATH = BASE_DIR / "tfidf_vectorizer.pkl"
 
-            # Transform input and predict
-            vectorized_text = vectorizer.transform([user_text])
-            prediction = model.predict(vectorized_text)[0]
+model = joblib.load(MODEL_PATH)
+vectorizer = joblib.load(VECTORIZER_PATH)
 
-            # Map the prediction flag to readable text
-            # Assuming 1 = AI-Generated, 0 = Human/Genuine
-            label = "AI-Generated" if int(
-                prediction) == 1 else "Genuine / Human"
 
-            response_data = {
-                "label": label,
-                "prediction": int(prediction)
-            }
+@app.post("/api/analyze")
+def analyze_text(payload: TextPayload):
+    user_text = payload.text.strip()
+    if not user_text:
+        raise HTTPException(status_code=400, detail="No text provided")
 
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(json.dumps(response_data).encode("utf-8"))
+    try:
+        vectorized_text = vectorizer.transform([user_text])
+        prediction = int(model.predict(vectorized_text)[0])
 
-        except Exception as e:
-            self.send_response(500)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(json.dumps({"error": str(e)}).encode("utf-8"))
+        label = "AI-Generated" if prediction == 1 else "Genuine / Human"
+
+        return {
+            "label": label,
+            "prediction": prediction
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

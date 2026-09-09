@@ -1,7 +1,5 @@
-pandas
 fastapi
-pydantic
+uvicorn
 scikit-learn
 joblib
 numpy
-python-multipart
