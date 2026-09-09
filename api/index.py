@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -6,37 +5,46 @@ import joblib
 
 app = FastAPI()
 
-# Define the request payload structure
-
 
 class TextPayload(BaseModel):
     text: str
 
 
-# Load models using safe relative paths
+# Model paths relative to the project root
 BASE_DIR = Path(__file__).resolve().parent.parent
 MODEL_PATH = BASE_DIR / "model_pac.pkl"
 VECTORIZER_PATH = BASE_DIR / "tfidf_vectorizer.pkl"
 
-model = joblib.load(MODEL_PATH)
-vectorizer = joblib.load(VECTORIZER_PATH)
+# Safe loading with fallback checks
+try:
+    model = joblib.load(MODEL_PATH)
+    vectorizer = joblib.load(VECTORIZER_PATH)
+except Exception as e:
+    model = None
+    vectorizer = None
+    load_error = str(e)
+
+# Handle both /api and /api/index to prevent 404s
 
 
-@app.post("/api/analyze")
-def analyze_text(payload: TextPayload):
-    user_text = payload.text.strip()
-    if not user_text:
-        raise HTTPException(status_code=400, detail="No text provided")
+@app.post("/api")
+@app.post("/api/index")
+def analyze(payload: TextPayload):
+    if model is None or vectorizer is None:
+        raise HTTPException(
+            status_code=500, detail=f"Model failed to load: {load_error}")
+
+    cleaned = payload.text.strip()
+    if not cleaned:
+        raise HTTPException(status_code=400, detail="Text cannot be empty.")
 
     try:
-        vectorized_text = vectorizer.transform([user_text])
-        prediction = int(model.predict(vectorized_text)[0])
-
-        label = "AI-Generated" if prediction == 1 else "Genuine / Human"
-
+        vec = vectorizer.transform([cleaned])
+        pred = int(model.predict(vec)[0])
         return {
-            "label": label,
-            "prediction": prediction
+            "prediction": pred,
+            "label": "AI-Generated" if pred == 1 else "Human-Written"
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=500, detail=f"Prediction error: {str(e)}")

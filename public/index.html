@@ -19,33 +19,49 @@
   <div id="result"></div>
 
   <script>
-    async function checkText() {
-      const text = document.getElementById("text").value;
-      const resDiv = document.getElementById("result");
-      const btn = document.getElementById("btn");
-      if (!text.trim()) return;
+   async function checkText() {
+  const text = document.getElementById("text").value;
+  const resDiv = document.getElementById("result");
+  const btn = document.getElementById("btn");
 
-      btn.disabled = true;
-      btn.innerText = "Analyzing...";
-      resDiv.style.display = "none";
+  if (!text.trim()) {
+    alert("Please enter some text first.");
+    return;
+  }
 
-      try {
-        const res = await fetch("/api/index", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text })
-        });
-        const data = await res.json();
-        resDiv.style.display = "block";
-        resDiv.innerText = "Result: " + data.label;
-        resDiv.className = data.prediction === 1 ? "ai" : "human";
-      } catch (err) {
-        alert("Request failed.");
-      } finally {
-        btn.disabled = false;
-        btn.innerText = "Analyze";
-      }
+  btn.disabled = true;
+  btn.innerText = "Analyzing...";
+  resDiv.style.display = "none";
+
+  try {
+    const res = await fetch("/api", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: text })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      // Displays the specific backend error (e.g. 404, 422, or 500 detail)
+      resDiv.style.display = "block";
+      resDiv.innerText = "Error: " + (data.detail || JSON.stringify(data));
+      resDiv.className = "ai";
+      return;
     }
+
+    resDiv.style.display = "block";
+    resDiv.innerText = "Result: " + data.label;
+    resDiv.className = data.prediction === 1 ? "ai" : "human";
+  } catch (err) {
+    resDiv.style.display = "block";
+    resDiv.innerText = "Network error: " + err.message;
+    resDiv.className = "ai";
+  } finally {
+    btn.disabled = false;
+    btn.innerText = "Analyze";
+  }
+}
   </script>
 </body>
 </html>
