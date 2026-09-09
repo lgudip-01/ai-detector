@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI vs. Human Text Detector</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      max-width: 640px;
+      margin: 40px auto;
+      padding: 0 16px;
+      color: #111;
+    }
+    textarea {
+      width: 100%;
+      height: 180px;
+      padding: 12px;
+      box-sizing: border-box;
+      font-size: 15px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      resize: vertical;
+    }
+    button {
+      margin-top: 12px;
+      padding: 10px 20px;
+      font-size: 15px;
+      font-weight: 600;
+      color: #fff;
+      background: #0070f3;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    button:disabled {
+      background: #888;
+      cursor: not-allowed;
+    }
+    #result-box {
+      margin-top: 20px;
+      padding: 14px;
+      border-radius: 6px;
+      display: none;
+      font-weight: bold;
+    }
+    .ai { background-color: #ffebe9; color: #cf222e; border: 1px solid #ff8182; }
+    .human { background-color: #dafbe1; color: #1a7f37; border: 1px solid #4ac26b; }
+  </style>
+</head>
+<body>
+
+  <h1>Text Authenticity Analyzer</h1>
+  <p>Paste any text snippet below to determine if it was written by AI or a human.</p>
+
+  <textarea id="text-input" placeholder="Enter text to analyze..."></textarea>
+  <br />
+  <button id="analyze-btn" onclick="analyzeText()">Analyze Text</button>
+
+  <div id="result-box"></div>
+
+  <script>
+    async function analyzeText() {
+      const textInput = document.getElementById("text-input").value;
+      const resultBox = document.getElementById("result-box");
+      const btn = document.getElementById("analyze-btn");
+
+      if (!textInput.trim()) {
+        alert("Please enter some text first.");
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerText = "Analyzing...";
+      resultBox.style.display = "none";
+
+      try {
+        const res = await fetch("/api/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: textInput })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          resultBox.style.display = "block";
+          resultBox.innerText = `Result: ${data.label}`;
+          resultBox.className = data.prediction === 1 ? "ai" : "human";
+        } else {
+          alert(data.error || "Analysis failed.");
+        }
+      } catch (err) {
+        alert("Server error. Please try again.");
+      } finally {
+        btn.disabled = false;
+        btn.innerText = "Analyze Text";
+      }
+    }
+  </script>
+</body>
+</html>
